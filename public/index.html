@@ -1,244 +1,150 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>CAÇA AO TESOURO ORG FAIT - Halloween</title>
-  <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-  <style>
-    :root{
-      --bg:#07040a;
-      --panel:#0f0c12;
-      --accent:#ff6b00;
-      --accent-2:#ffda6b;
-      --muted:#d6d6e6;
-      --glass: rgba(255,255,255,0.03);
-    }
-
-    /* Reset + base */
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:Roboto, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial;
-      background: radial-gradient(1200px 600px at 10% 10%, rgba(80,15,90,0.12), transparent),
-                  linear-gradient(180deg,#06020a,#12061a 60%);
-      color:var(--muted);
-      min-height:100vh;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:20px;
-    }
-
-    /* Card */
-    .container{
-      width:100%;
-      max-width:1100px;
-      border-radius:14px;
-      padding:18px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));
-      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-      position:relative;
-      overflow:hidden;
-    }
-
-    .header{
-      display:flex;
-      gap:12px;
-      align-items:center;
-      margin-bottom:12px;
-    }
-    .brand{
-      font-family:'Luckiest Guy', cursive;
-      color:var(--accent-2);
-      font-size:34px;
-      letter-spacing:1px;
-      text-transform:uppercase;
-    }
-    .subtitle{ color:#cfcfe6; font-size:14px; }
-
-    .layout{
-      display:grid;
-      grid-template-columns: 1fr 380px;
-      gap:18px;
-    }
-
-    /* Panels */
-    .panel{
-      background:var(--panel);
-      border-radius:12px;
-      padding:14px;
-      border:1px solid var(--glass);
-    }
-
-    /* Controls */
-    .controls{ display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
-    .input{
-      flex:1;
-      min-width:120px;
-      padding:10px 12px;
-      border-radius:10px;
-      border:1px solid rgba(255,255,255,0.04);
-      background:transparent;
-      color:var(--muted);
-      font-size:15px;
-    }
-    .btn{
-      padding:10px 14px;
-      border-radius:10px;
-      border:0;
-      cursor:pointer;
-      font-weight:700;
-      background:linear-gradient(90deg,var(--accent),#ff8a3c);
-      color:#200700;
-      box-shadow: 0 8px 22px rgba(255,107,0,0.08);
-    }
-    .btn.secondary{
-      background:transparent;
-      border:1px solid rgba(255,255,255,0.04);
-      color:var(--muted);
-      box-shadow:none;
-    }
-
-    /* chests grid */
-    .chests{
-      display:grid;
-      grid-template-columns:repeat(3, 1fr);
-      gap:12px;
-      align-items:stretch;
-    }
-
-    .chest{
-      background: linear-gradient(180deg,#2a0f11,#3b1416);
-      border-radius:12px;
-      padding:10px;
-      text-align:center;
-      cursor:pointer;
-      border:2px solid rgba(255,255,255,0.03);
-      transition: transform .18s ease, box-shadow .18s ease;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      align-items:center;
-      height:140px;
-      position:relative;
-      overflow:hidden;
-    }
-    .chest:active{ transform:translateY(-4px) scale(0.995); }
-    .chest.disabled{ opacity:0.55; pointer-events:none; filter:grayscale(.05); }
-
-    .chest svg{ width:66%; height:auto; display:block; margin:0 auto; transition: transform .45s ease; }
-    .chest.open svg{ transform: translateY(-18px) scale(0.98) rotateX(8deg); }
-
-    .chest .label{ margin-top:8px; font-weight:700; color:var(--accent-2); font-size:14px; }
-
-    /* log */
-    .log{
-      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.04));
-      border-radius:10px;
-      padding:10px;
-      height:360px;
-      overflow:auto;
-      font-size:13px;
-      color:#eaeaf2;
-    }
-
-    /* win toast/modal */
-    .win{
-      position:fixed;
-      left:50%;
-      top:18%;
-      transform:translate(-50%,-50%) scale(.98);
-      background: linear-gradient(90deg,var(--accent-2),var(--accent));
-      color:#150800;
-      padding:14px 20px;
-      border-radius:12px;
-      font-weight:800;
-      display:none;
-      box-shadow:0 18px 60px rgba(0,0,0,0.6);
-      z-index:9999;
-    }
-
-    /* top-right controls */
-    .top-right{ position:absolute; right:18px; top:18px; display:flex; gap:8px; align-items:center; }
-
-    /* responsive */
-    @media (max-width:980px){
-      .layout{ grid-template-columns: 1fr; }
-      .brand{ font-size:28px; }
-      .chest{ height:120px; }
-      .panel{ padding:12px; }
-      .log{ height:220px; }
-    }
-    @media (max-width:520px){
-      body{ padding:12px; }
-      .container{ padding:12px; }
-      .controls{ flex-direction:column; align-items:stretch; }
-      .input{ width:100%; }
-      .btn{ width:100%; }
-      .chests{ grid-template-columns:repeat(2,1fr); }
-      .chest{ height:110px; }
-      .top-right{ display:none; }
-    }
-
-    /* small animations */
-    .sparkle {
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      background-image: radial-gradient(circle at 10% 10%, rgba(255,218,107,0.03), transparent 6%),
-                        radial-gradient(circle at 80% 30%, rgba(255,107,60,0.02), transparent 6%);
-      mix-blend-mode: screen;
-    }
-
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FAIT - Caça ao Tesouro Halloween</title>
+<link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Roboto:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0b12;
+  --accent: #ff6b00;
+  --accent2: #ffda6b;
+  --muted: #d8d8e5;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Roboto, sans-serif;
+  background: radial-gradient(circle at top, #140a1a, #050507 70%);
+  color: var(--muted);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.container {
+  width: 100%;
+  max-width: 460px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+}
+.brand {
+  font-family: 'Luckiest Guy', cursive;
+  color: var(--accent2);
+  font-size: 26px;
+  text-align: center;
+  margin-bottom: 6px;
+}
+.subtitle {
+  text-align: center;
+  color: #aaa;
+  font-size: 14px;
+  margin-bottom: 14px;
+}
+.input {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  color: var(--muted);
+  font-size: 15px;
+}
+.btn {
+  width: 100%;
+  background: linear-gradient(90deg, var(--accent), #ff914d);
+  color: #150700;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: transform .15s;
+}
+.btn:active { transform: scale(0.96); }
+#game-area { display:none; margin-top:14px; }
+.chests {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 8px;
+}
+.chest {
+  background: linear-gradient(180deg,#2b1111,#3a1515);
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .15s;
+}
+.chest:active { transform: scale(0.95); }
+.chest.disabled { opacity: .5; pointer-events: none; }
+.chest img {
+  width: 100%;
+  height: 100px;
+  object-fit: contain;
+}
+.label {
+  margin-top: 6px;
+  font-weight: 700;
+  color: var(--accent2);
+}
+.footer {
+  text-align: center;
+  font-size: 13px;
+  color: #aaa;
+  margin-top: 10px;
+}
+#log {
+  background: rgba(0,0,0,0.2);
+  border-radius: 8px;
+  padding: 8px;
+  margin-top: 18px;
+  height: 150px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+#win-modal {
+  position: fixed;
+  left: 50%;
+  top: 30%;
+  transform: translate(-50%,-50%);
+  background: linear-gradient(90deg,#ffda6b,#ff8a3c);
+  color: #1b0a00;
+  padding: 16px 22px;
+  border-radius: 12px;
+  display: none;
+  z-index: 9999;
+  font-weight: 800;
+  font-size: 18px;
+}
+</style>
 </head>
 <body>
-  <div class="container" role="main">
-    <div class="top-right">
-      <button id="audio-toggle" class="btn secondary" title="Tocar/pausar som">🔊 Som</button>
-    </div>
+  <div class="container">
+    <div class="brand">FAIT</div>
+    <div class="subtitle">Caça ao Tesouro 🎃 Halloween</div>
 
-    <div class="header">
-      <div class="brand">CAÇA AO TESOURO ORG FAIT</div>
-      <div class="subtitle">Halloween Edition — abra um baú por código</div>
-    </div>
+    <input id="code-input" class="input" placeholder="Código (ex: ABC123)">
+    <input id="username-input" class="input" placeholder="Seu nome para resgate">
+    <button id="use-code" class="btn">Usar Código</button>
 
-    <div class="layout">
-      <div class="panel" aria-labelledby="game-title">
-        <div id="game-title" style="margin-bottom:8px;font-weight:700;color:var(--accent-2)">Jogo</div>
+    <div id="locked" style="text-align:center;margin-top:8px;font-size:13px;">Insira código e nome para começar.</div>
 
-        <div class="controls" aria-hidden="false">
-          <input id="code-input" class="input" placeholder="Código (ex: ABC123)" aria-label="Código"/>
-          <input id="username-input" class="input" placeholder="Seu nome para resgate" aria-label="Seu nome"/>
-          <button id="use-code" class="btn" aria-label="Usar código">Usar</button>
-        </div>
-
-        <div id="game-area" style="display:none">
-          <div class="chests" id="chests" role="list" aria-label="Baús"></div>
-          <div style="margin-top:12px;color:#cfcfe0;font-size:13px">Você pode abrir apenas <strong>1 baú</strong> por código. O nome será registrado para resgate no painel admin.</div>
-        </div>
-
-        <div id="locked" style="margin-top:8px;color:#cfcfe0" class="small">Insira código e nome para começar.</div>
-        <div class="sparkle" aria-hidden="true"></div>
-      </div>
-
-      <div class="panel" aria-labelledby="log-title">
-        <div id="log-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <strong>Últimos prêmios</strong>
-          <span style="font-size:13px;color:#cfcfe0">Prêmios até R$10</span>
-        </div>
-        <div id="log" class="log" role="log" aria-live="polite"></div>
-      </div>
+    <div id="game-area">
+      <div class="chests" id="chests"></div>
+      <div class="footer">Você pode abrir apenas 1 baú por código.</div>
+      <div id="log"></div>
     </div>
   </div>
 
-  <div id="win" class="win" role="status" aria-live="polite"></div>
-
-  <audio id="bg-audio" loop>
-    <source src="spooky_loop.wav" type="audio/wav">
-  </audio>
-
-  <script src="/app.js" defer></script>
+  <div id="win-modal"></div>
+  <audio id="bg-audio" loop><source src="spooky_loop.wav" type="audio/wav"></audio>
+  <script src="app.js"></script>
 </body>
 </html>
