@@ -1,0 +1,59 @@
+
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAÇA AO TESOURO ORG FAIT - Halloween</title>
+<link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Roboto:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0b12;--accent:#ff6b00;--accent2:#ffda6b;--muted:#cfcfe0}
+*{box-sizing:border-box}body{margin:0;font-family:Roboto, sans-serif;background:linear-gradient(180deg,#0b0710,#1b0f1f);color:var(--muted);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.container{width:100%;max-width:980px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06));border-radius:12px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,0.6)}
+.header{display:flex;align-items:center;gap:12px}
+.brand{font-family:'Luckiest Guy',cursive;color:var(--accent2);font-size:32px;text-transform:uppercase}
+.content{display:grid;grid-template-columns:1fr 360px;gap:14px;margin-top:12px}
+.panel{background:rgba(255,255,255,0.02);padding:12px;border-radius:10px}
+.controls{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.input{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--muted)}
+.btn{padding:10px 14px;border-radius:8px;border:0;cursor:pointer;font-weight:700}
+.btn-primary{background:linear-gradient(90deg,var(--accent),#ff8a3c);color:#170900}
+.chests{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.chest{background:linear-gradient(180deg,#2b1111,#3a1515);border-radius:10px;padding:12px;text-align:center;cursor:pointer;border:2px solid rgba(255,255,255,0.02);transition:transform .15s}
+.chest.disabled{opacity:0.5;pointer-events:none}
+.chest img{width:100%;height:120px;object-fit:contain}
+.chest .label{margin-top:8px;font-weight:700;color:var(--accent2)}
+.log{background:rgba(0,0,0,0.18);padding:8px;border-radius:8px;height:320px;overflow:auto;color:#eaeaf2;font-size:13px}
+.footer{margin-top:10px;color:#bfbfd3;font-size:13px}
+.win-modal{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%);background:linear-gradient(90deg,#ffda6b,#ff8a3c);color:#1b0a00;padding:18px 24px;border-radius:12px;display:none;z-index:9999;font-weight:800}
+.small{font-size:13px;color:#d9d9e6}
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><div class="brand">CAÇA AO TESOURO ORG FAIT</div><div class="small">Halloween</div></div>
+    <div class="content">
+      <div class="panel">
+        <div class="controls">
+          <input id="code-input" class="input" placeholder="Código (ex: ABC123)" />
+          <input id="username-input" class="input" placeholder="Seu nome para resgate" />
+          <button id="use-code" class="btn btn-primary">Usar</button>
+        </div>
+
+        <div id="game-area" style="display:none">
+          <div class="chests" id="chests"></div>
+          <div class="footer">Você pode abrir apenas 1 baú por código. Depois disso o código é consumido.</div>
+        </div>
+        <div id="locked" class="small">Insira código e nome para começar.</div>
+      </div>
+
+      <div class="panel">
+        <div><strong>Últimos prêmios</strong></div>
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="win-modal" class="win-modal"></div>
+  <audio id="bg-audio" loop><source src="spooky_loop.wav" type="audio/wav"></audio>
+<script src="/app.js"></script>
+</body>
+</html>
