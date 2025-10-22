@@ -160,3 +160,8 @@ app.post('/api/play', (req,res)=>{
 });
 
 app.listen(PORT, ()=>console.log('Treasure server (final) running on port', PORT));
+
+// Rota para abrir o painel admin (serve o arquivo admin.html)
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
