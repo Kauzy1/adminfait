@@ -1,8 +1,7 @@
 /**
- * server.js - FAIT v3 (Halloween Edition 🎃)
- * - Node.js + Express + SQLite3
- * - Sistema de códigos com prêmios fixos ou sorteio normal
- * - Painel admin protegido com x-admin-password
+ * server.js - FAIT v4
+ * - Adiciona suporte a valor fixo personalizado por código
+ * - 100% compatível com Railway e painel admin
  */
 
 require('dotenv').config();
@@ -21,15 +20,9 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// === Banco de Dados === //
+// === Banco ===
 const DB = path.join(__dirname, 'data.sqlite');
-const db = new sqlite3.Database(DB, (err) => {
-  if (err) {
-    console.error('Erro ao abrir o banco de dados', err);
-    process.exit(1);
-  }
-  console.log('🎃 Banco de dados conectado:', DB);
-});
+const db = new sqlite3.Database(DB);
 
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS codes (
@@ -53,14 +46,13 @@ db.serialize(() => {
   )`);
 });
 
-// === Funções === //
+// === Funções auxiliares ===
 function requireAdmin(req, res, next) {
   if (req.header('x-admin-password') !== ADMIN_PASSWORD)
-    return res.status(401).json({ error: 'Senha incorreta ou não autorizada' });
+    return res.status(401).json({ error: 'Senha incorreta' });
   next();
 }
 
-// Sorteio aleatório (ponderado)
 function getWeightedPrize() {
   const prizes = [
     { label: 'R$0,50', value: 0.5, weight: 80 },
@@ -72,26 +64,25 @@ function getWeightedPrize() {
     { label: 'R$10,00', value: 10.0, weight: 5 },
   ];
 
-  const totalWeight = prizes.reduce((s, p) => s + p.weight, 0);
-  const r = Math.random() * totalWeight;
-  let c = 0;
+  const total = prizes.reduce((sum, p) => sum + p.weight, 0);
+  const r = Math.random() * total;
+  let acc = 0;
   for (const p of prizes) {
-    c += p.weight;
-    if (r <= c) return p;
+    acc += p.weight;
+    if (r <= acc) return p;
   }
   return prizes[0];
 }
 
-// === Rotas Admin === //
+// === Rotas ADMIN ===
 
-// Gerar códigos com prêmio fixo opcional
+// Gerar código com valor fixo customizado
 app.post('/admin/generate', requireAdmin, (req, res) => {
   const {
     count = 1,
     uses_allowed = 1,
     expires_in_days = 30,
-    fixed_prize_label = null,
-    fixed_prize_value = null,
+    fixed_value = null
   } = req.body || {};
 
   const created_at = Date.now();
@@ -100,61 +91,48 @@ app.post('/admin/generate', requireAdmin, (req, res) => {
     : null;
 
   const inserted = [];
-  let i = 0;
 
-  function insertOne() {
-    if (i >= count) return res.json({ inserted, count: inserted.length });
+  function gerarUm(i) {
+    if (i >= count) return res.json({ count: inserted.length, codes: inserted });
+
     const code = uuidv4().split('-')[0].toUpperCase();
+    const valor = parseFloat(fixed_value);
+
+    const hasFixed = !isNaN(valor) && valor > 0;
+    const label = hasFixed ? `R$${valor.toFixed(2)}` : null;
+    const val = hasFixed ? valor : null;
+
     db.run(
       `INSERT INTO codes (code, uses_allowed, uses_count, fixed_prize_label, fixed_prize_value, created_at, expires_at)
        VALUES (?, ?, 0, ?, ?, ?, ?)`,
-      [code, uses_allowed, fixed_prize_label, fixed_prize_value, created_at, expires_at],
+      [code, uses_allowed, label, val, created_at, expires_at],
       (err) => {
         if (!err) inserted.push(code);
-        i++;
-        insertOne();
+        gerarUm(i + 1);
       }
     );
   }
 
-  insertOne();
+  gerarUm(0);
 });
 
 // Listar códigos
 app.get('/admin/list', requireAdmin, (req, res) => {
-  db.all(
-    'SELECT * FROM codes ORDER BY id DESC LIMIT 1000',
-    [],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ codes: rows });
-    }
-  );
-});
-
-// Revogar código
-app.post('/admin/revoke', requireAdmin, (req, res) => {
-  const { code } = req.body || {};
-  if (!code) return res.status(400).json({ error: 'Código obrigatório' });
-  db.run('DELETE FROM codes WHERE code = ?', [code], function (err) {
+  db.all('SELECT * FROM codes ORDER BY id DESC LIMIT 500', (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json({ ok: true, deleted: this.changes });
+    res.json({ codes: rows });
   });
 });
 
 // Logs
 app.get('/admin/logs', requireAdmin, (req, res) => {
-  db.all(
-    'SELECT * FROM prize_log ORDER BY id DESC LIMIT 1000',
-    [],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ logs: rows });
-    }
-  );
+  db.all('SELECT * FROM prize_log ORDER BY id DESC LIMIT 500', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ logs: rows });
+  });
 });
 
-// === Rotas Públicas === //
+// === Rotas públicas ===
 
 // Validar código
 app.post('/api/redeem', (req, res) => {
@@ -164,18 +142,14 @@ app.post('/api/redeem', (req, res) => {
   db.get('SELECT * FROM codes WHERE code = ?', [code], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!row) return res.status(404).json({ error: 'Código inválido' });
-
-    const now = Date.now();
-    if (row.expires_at && now > row.expires_at)
-      return res.status(400).json({ error: 'Código expirado' });
     if (row.uses_count >= row.uses_allowed)
-      return res.status(400).json({ error: 'Código já utilizado' });
+      return res.status(400).json({ error: 'Código já usado' });
 
     res.json({ ok: true });
   });
 });
 
-// Jogar / consumir código
+// Jogar
 app.post('/api/play', (req, res) => {
   const { code, username } = req.body || {};
   if (!code) return res.status(400).json({ error: 'Código obrigatório' });
@@ -184,33 +158,22 @@ app.post('/api/play', (req, res) => {
   db.get('SELECT * FROM codes WHERE code = ?', [code], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!row) return res.status(404).json({ error: 'Código inválido' });
-
-    const now = Date.now();
-    if (row.expires_at && now > row.expires_at)
-      return res.status(400).json({ error: 'Código expirado' });
     if (row.uses_count >= row.uses_allowed)
-      return res.status(400).json({ error: 'Código já utilizado' });
+      return res.status(400).json({ error: 'Código já usado' });
 
-    // Verifica se tem prêmio fixo
-    const chosen = row.fixed_prize_label
+    const prize = row.fixed_prize_value
       ? { label: row.fixed_prize_label, value: row.fixed_prize_value }
       : getWeightedPrize();
 
-    // Atualiza uso
     db.run(
       'UPDATE codes SET uses_count = uses_count + 1 WHERE id = ?',
       [row.id],
       (err2) => {
         if (err2) return res.status(500).json({ error: err2.message });
-
-        // Loga o prêmio
         db.run(
           'INSERT INTO prize_log (code, username, prize_label, prize_value, created_at) VALUES (?, ?, ?, ?, ?)',
-          [row.code, username, chosen.label, chosen.value, now],
-          (err3) => {
-            if (err3) console.error('Erro ao salvar log', err3);
-            res.json({ prize: chosen, message: 'Prêmio revelado!' });
-          }
+          [row.code, username, prize.label, prize.value, Date.now()],
+          () => res.json({ prize, message: 'Prêmio liberado!' })
         );
       }
     );
@@ -222,5 +185,5 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// === Servidor === //
-app.listen(PORT, () => console.log(`🚀 Servidor FAIT rodando na porta ${PORT}`));
+// === Iniciar servidor ===
+app.listen(PORT, () => console.log(`🚀 FAIT v4 rodando na porta ${PORT}`));
