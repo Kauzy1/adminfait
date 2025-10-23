@@ -1,4 +1,3 @@
-
 async function api(path, method='GET', body=null, adminPass=''){
   const headers = {};
   if(adminPass) headers['x-admin-password'] = adminPass;
@@ -16,10 +15,11 @@ const revokeBtn = document.getElementById('revoke-btn');
 const logsBtn = document.getElementById('logs-btn');
 
 function renderCodes(list){
-  let html = '<table><thead><tr><th>Código</th><th>Usos</th><th>Expira</th></tr></thead><tbody>';
+  let html = '<table><thead><tr><th>Código</th><th>Usos</th><th>Expira</th><th>Prêmio</th></tr></thead><tbody>';
   list.forEach(c=>{
     const exp = c.expires_at ? new Date(c.expires_at).toLocaleString() : 'nunca';
-    html += `<tr><td><strong>${c.code}</strong></td><td>${c.uses_count}/${c.uses_allowed}</td><td>${exp}</td></tr>`;
+    const premio = c.assigned_prize_label ? `${c.assigned_prize_label} (R$${Number(c.assigned_prize_value || 0).toFixed(2)})` : '-';
+    html += `<tr><td><strong>${c.code}</strong></td><td>${c.uses_count}/${c.uses_allowed}</td><td>${exp}</td><td>${premio}</td></tr>`;
   });
   html += '</tbody></table>';
   codesEl.innerHTML = html;
@@ -28,14 +28,26 @@ function renderCodes(list){
 genBtn.addEventListener('click', async ()=>{
   const adminPass = document.getElementById('admin-pass').value.trim();
   if(!adminPass) return alert('Coloque a senha admin no campo');
+
   const count = parseInt(document.getElementById('count').value) || 1;
   const uses = parseInt(document.getElementById('uses').value) || 1;
   const days = parseInt(document.getElementById('days').value) || 30;
+  const prizeLabel = document.getElementById('prize-label').value.trim();
+  const prizeValue = parseFloat(document.getElementById('prize-value').value) || null;
+
   try{
-    const res = await api('/admin/generate','POST',{ count, uses_allowed: uses, expires_in_days: days }, adminPass);
+    const res = await api('/admin/generate','POST',{
+      count,
+      uses_allowed: uses,
+      expires_in_days: days,
+      assigned_prize_label: prizeLabel || null,
+      assigned_prize_value: prizeValue || null
+    }, adminPass);
     alert('Gerados: ' + res.count);
     listBtn.click();
-  }catch(e){ alert('Erro: ' + (e.error || JSON.stringify(e))); }
+  }catch(e){
+    alert('Erro: ' + (e.error || JSON.stringify(e)));
+  }
 });
 
 listBtn.addEventListener('click', async ()=>{
@@ -44,7 +56,9 @@ listBtn.addEventListener('click', async ()=>{
   try{
     const res = await api('/admin/list','GET',null,adminPass);
     renderCodes(res.codes);
-  }catch(e){ alert('Erro: ' + (e.error || JSON.stringify(e))); }
+  }catch(e){
+    alert('Erro: ' + (e.error || JSON.stringify(e)));
+  }
 });
 
 revokeBtn.addEventListener('click', async ()=>{

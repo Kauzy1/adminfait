@@ -1,13 +1,26 @@
-
 <!doctype html>
 <html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin - CAÇA AO TESOURO ORG FAIT</title>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin - CAÇA AO TESOURO ORG FAIT</title>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;500;700&display=swap" rel="stylesheet">
-<style>body{font-family:Roboto, sans-serif;background:#0b0b12;color:#e8e8f0;padding:18px} .container{max-width:980px;margin:0 auto;background:#101018;padding:14px;border-radius:8px} .input{width:100%;padding:8px;border-radius:6px;background:#0f0f14;border:1px solid #222;color:#e8e8f0} .btn{padding:8px 12px;border-radius:6px;border:0;background:#ff8a3c;color:#150800;cursor:pointer;font-weight:700} .codes{margin-top:12px;background:#0b0b12;padding:10px;border-radius:6px;height:320px;overflow:auto} .row{display:flex;gap:8px} .small{width:120px} table{width:100%;border-collapse:collapse} td,th{padding:6px;border-bottom:1px solid #111;font-size:13px}</style>
+<style>
+body{font-family:Roboto,sans-serif;background:#0b0b12;color:#e8e8f0;padding:18px}
+.container{max-width:980px;margin:0 auto;background:#101018;padding:14px;border-radius:8px}
+.input{width:100%;padding:8px;border-radius:6px;background:#0f0f14;border:1px solid #222;color:#e8e8f0}
+.btn{padding:8px 12px;border-radius:6px;border:0;background:#ff8a3c;color:#150800;cursor:pointer;font-weight:700}
+.codes{margin-top:12px;background:#0b0b12;padding:10px;border-radius:6px;height:320px;overflow:auto}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.small{width:120px}
+table{width:100%;border-collapse:collapse}
+td,th{padding:6px;border-bottom:1px solid #111;font-size:13px}
+</style>
 </head>
 <body>
   <div class="container">
     <h2>Painel Admin — CAÇA AO TESOURO ORG FAIT</h2>
+
     <div style="margin-bottom:8px">
       <label>Senha Admin (header x-admin-password):</label>
       <input id="admin-pass" class="input" type="password" placeholder="Digite a senha" />
@@ -15,18 +28,20 @@
 
     <div class="row" style="margin-bottom:8px">
       <input id="count" class="input small" placeholder="Quantidade" value="20" />
-      <input id="uses" class="input small" placeholder="Usos por código (default 1)" value="1" />
+      <input id="uses" class="input small" placeholder="Usos por código" value="1" />
       <input id="days" class="input small" placeholder="Expira (dias)" value="30" />
+      <input id="prize-label" class="input small" placeholder="Nome prêmio (ex: R$0,50)" />
+      <input id="prize-value" class="input small" placeholder="Valor (ex: 0.50)" />
       <button id="gen-btn" class="btn">Gerar</button>
       <button id="list-btn" class="btn">Listar códigos</button>
       <button id="logs-btn" class="btn" style="background:#6c757d;color:#fff">Ver Logs</button>
     </div>
 
-    <div style="display:flex;gap:12px">
-      <div style="flex:1">
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:400px">
         <div class="codes" id="codes"></div>
       </div>
-      <div style="width:360px">
+      <div style="width:360px;min-width:260px">
         <h3>Revogar</h3>
         <input id="revoke-code" class="input" placeholder="Cole o código para revogar" />
         <button id="revoke-btn" class="btn" style="background:#d9534f;color:#fff;margin-top:8px">Revogar</button>
