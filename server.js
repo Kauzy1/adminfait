@@ -1,8 +1,6 @@
 /**
- * server.js - FAIT Caça ao Tesouro 🎃 (Versão Final Corrigida)
- * - Backend Node + SQLite3
- * - Sistema de códigos com valor fixo
- * - Totalmente compatível com Railway
+ * server.js - FAIT Caça ao Tesouro 🎃
+ * Backend Node + SQLite3, compatível com Railway
  */
 
 require('dotenv').config();
@@ -12,17 +10,22 @@ const bodyParser = require('body-parser');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'faitzudosadm100';
+
+// Criar pasta data se não existir
+const dataDir = path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
 
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // === Banco de Dados === //
-const DB_FILE = path.join(__dirname, 'data.sqlite');
+const DB_FILE = path.join(dataDir, 'data.sqlite');
 const db = new sqlite3.Database(DB_FILE, (err) => {
   if (err) {
     console.error('Erro ao abrir o banco de dados', err);
@@ -62,7 +65,7 @@ function requireAdmin(req, res, next) {
 
 // === Rotas Admin === //
 
-// Gerar códigos com valor fixo
+// Gerar códigos
 app.post('/admin/generate', requireAdmin, async (req, res) => {
   const { count = 1, prize_label, prize_value, uses_allowed = 1, expires_in_days = 30 } = req.body || {};
   if (!prize_label || !prize_value) return res.status(400).json({ error: 'Informe o valor e o nome do prêmio' });
@@ -121,8 +124,6 @@ app.get('/admin/logs', requireAdmin, (req, res) => {
 });
 
 // === Rotas Públicas === //
-
-// Validar código
 app.post('/api/redeem', (req, res) => {
   const { code } = req.body || {};
   if (!code) return res.status(400).json({ error: 'Código obrigatório' });
@@ -138,7 +139,6 @@ app.post('/api/redeem', (req, res) => {
   });
 });
 
-// Jogar — entrega o prêmio fixo
 app.post('/api/play', (req, res) => {
   const { code, username } = req.body || {};
   if (!code) return res.status(400).json({ error: 'Código obrigatório' });
@@ -151,11 +151,9 @@ app.post('/api/play', (req, res) => {
     if (row.expires_at && now > row.expires_at) return res.status(400).json({ error: 'Código expirado' });
     if (row.uses_count >= row.uses_allowed) return res.status(400).json({ error: 'Código já utilizado' });
 
-    // Consome o código
     db.run('UPDATE codes SET uses_count = uses_count + 1 WHERE id = ?', [row.id], function (err2) {
       if (err2) return res.status(500).json({ error: err2.message });
 
-      // Registra o log
       db.run(
         'INSERT INTO prize_log(code,username,prize_label,prize_value,created_at) VALUES(?,?,?,?,?)',
         [row.code, username, row.prize_label, row.prize_value, Date.now()],
@@ -172,10 +170,8 @@ app.post('/api/play', (req, res) => {
   });
 });
 
-// Painel admin
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// === Inicialização === //
 app.listen(PORT, () => console.log(`🚀 Servidor FAIT rodando na porta ${PORT}`));
