@@ -18,7 +18,7 @@ function renderCodes(list){
   let html = '<table><thead><tr><th>Código</th><th>Usos</th><th>Expira</th><th>Prêmio</th></tr></thead><tbody>';
   list.forEach(c=>{
     const exp = c.expires_at ? new Date(c.expires_at).toLocaleString() : 'nunca';
-    const premio = c.fixed_prize_value ? `${c.fixed_prize_label || ('R$' + Number(c.fixed_prize_value).toFixed(2))}` : '-';
+    const premio = c.prize_value ? `${c.prize_label || ('R$' + Number(c.prize_value).toFixed(2))}` : '-';
     html += `<tr><td><strong>${c.code}</strong></td><td>${c.uses_count}/${c.uses_allowed}</td><td>${exp}</td><td>${premio}</td></tr>`;
   });
   html += '</tbody></table>';
@@ -35,16 +35,18 @@ genBtn.addEventListener('click', async ()=>{
   const prizeValueRaw = document.getElementById('prize-value').value.trim();
   const prizeLabelRaw = document.getElementById('prize-label').value.trim();
 
-  const fixed_prize_value = prizeValueRaw === '' ? null : Number(prizeValueRaw);
-  const fixed_prize_label = prizeLabelRaw === '' ? null : prizeLabelRaw;
+  if(prizeValueRaw === '') return alert('Informe o valor do prêmio');
+
+  const prize_value = Number(prizeValueRaw);
+  const prize_label = prizeLabelRaw === '' ? `R$${prize_value.toFixed(2)}` : prizeLabelRaw;
 
   try{
     const res = await api('/admin/generate','POST',{
       count,
       uses_allowed: uses,
       expires_in_days: days,
-      fixed_prize_value,
-      fixed_prize_label
+      prize_value,
+      prize_label
     }, adminPass);
     alert('Gerados: ' + res.count);
     listBtn.click();

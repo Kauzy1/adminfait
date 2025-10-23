@@ -63,29 +63,31 @@ function requireAdmin(req, res, next) {
 // === Rotas Admin === //
 
 // Gerar códigos com valor fixo
-app.post('/admin/generate', requireAdmin, (req, res) => {
+app.post('/admin/generate', requireAdmin, async (req, res) => {
   const { count = 1, prize_label, prize_value, uses_allowed = 1, expires_in_days = 30 } = req.body || {};
   if (!prize_label || !prize_value) return res.status(400).json({ error: 'Informe o valor e o nome do prêmio' });
 
   const created_at = Date.now();
-  const expires_at = expires_in_days > 0 ? created_at + expires_in_days * 24 * 60 * 60 * 1000 : null;
+  const expires_at = expires_in_days > 0 ? created_at + expires_in_days * 24*60*60*1000 : null;
   const inserted = [];
-  let i = 0;
 
-  function insertOne() {
-    if (i >= count) return res.json({ ok: true, count: inserted.length, inserted });
+  for (let i = 0; i < count; i++) {
     const code = (uuidv4().split('-')[0]).toUpperCase();
-    db.run(
-      'INSERT INTO codes(code,prize_label,prize_value,uses_allowed,uses_count,created_at,expires_at) VALUES(?,?,?,?,?,?,?)',
-      [code, prize_label, prize_value, uses_allowed, 0, created_at, expires_at],
-      (err) => {
-        if (!err) inserted.push(code);
-        i++;
-        insertOne();
-      }
-    );
+    try {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'INSERT INTO codes(code,prize_label,prize_value,uses_allowed,uses_count,created_at,expires_at) VALUES(?,?,?,?,?,?,?)',
+          [code, prize_label, prize_value, uses_allowed, 0, created_at, expires_at],
+          (err) => err ? reject(err) : resolve()
+        );
+      });
+      inserted.push(code);
+    } catch (e) {
+      console.error('Erro ao inserir código', e);
+    }
   }
-  insertOne();
+
+  res.json({ ok: true, count: inserted.length, inserted });
 });
 
 // Listar códigos
