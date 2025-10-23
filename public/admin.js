@@ -18,7 +18,7 @@ function renderCodes(list){
   let html = '<table><thead><tr><th>Código</th><th>Usos</th><th>Expira</th><th>Prêmio</th></tr></thead><tbody>';
   list.forEach(c=>{
     const exp = c.expires_at ? new Date(c.expires_at).toLocaleString() : 'nunca';
-    const premio = c.assigned_prize_label ? `${c.assigned_prize_label} (R$${Number(c.assigned_prize_value || 0).toFixed(2)})` : '-';
+    const premio = c.fixed_prize_value ? `${c.fixed_prize_label || ('R$' + Number(c.fixed_prize_value).toFixed(2))}` : '-';
     html += `<tr><td><strong>${c.code}</strong></td><td>${c.uses_count}/${c.uses_allowed}</td><td>${exp}</td><td>${premio}</td></tr>`;
   });
   html += '</tbody></table>';
@@ -32,16 +32,19 @@ genBtn.addEventListener('click', async ()=>{
   const count = parseInt(document.getElementById('count').value) || 1;
   const uses = parseInt(document.getElementById('uses').value) || 1;
   const days = parseInt(document.getElementById('days').value) || 30;
-  const prizeLabel = document.getElementById('prize-label').value.trim();
-  const prizeValue = parseFloat(document.getElementById('prize-value').value) || null;
+  const prizeValueRaw = document.getElementById('prize-value').value.trim();
+  const prizeLabelRaw = document.getElementById('prize-label').value.trim();
+
+  const fixed_prize_value = prizeValueRaw === '' ? null : Number(prizeValueRaw);
+  const fixed_prize_label = prizeLabelRaw === '' ? null : prizeLabelRaw;
 
   try{
     const res = await api('/admin/generate','POST',{
       count,
       uses_allowed: uses,
       expires_in_days: days,
-      assigned_prize_label: prizeLabel || null,
-      assigned_prize_value: prizeValue || null
+      fixed_prize_value,
+      fixed_prize_label
     }, adminPass);
     alert('Gerados: ' + res.count);
     listBtn.click();

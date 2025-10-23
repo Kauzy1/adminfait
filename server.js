@@ -1,7 +1,5 @@
 /**
- * server.js - FAIT v4
- * - Adiciona suporte a valor fixo personalizado por código
- * - 100% compatível com Railway e painel admin
+ * server.js - Fix definitivo: entrega prize fixo por código se definido
  */
 
 require('dotenv').config();
@@ -20,10 +18,17 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// === Banco ===
+// DB
 const DB = path.join(__dirname, 'data.sqlite');
-const db = new sqlite3.Database(DB);
+const db = new sqlite3.Database(DB, (err) => {
+  if (err) {
+    console.error('Erro ao abrir DB', err);
+    process.exit(1);
+  }
+  console.log('DB aberto em', DB);
+});
 
+// ensure tables + columns exist (safe create; ALTER handled separately if needed)
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS codes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,7 +40,6 @@ db.serialize(() => {
     created_at INTEGER,
     expires_at INTEGER
   )`);
-
   db.run(`CREATE TABLE IF NOT EXISTS prize_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     code TEXT,
@@ -46,13 +50,14 @@ db.serialize(() => {
   )`);
 });
 
-// === Funções auxiliares ===
+// util: require admin header
 function requireAdmin(req, res, next) {
   if (req.header('x-admin-password') !== ADMIN_PASSWORD)
-    return res.status(401).json({ error: 'Senha incorreta' });
+    return res.status(401).json({ error: 'Unauthorized' });
   next();
 }
 
+// weighted prize (fallback, unchanged)
 function getWeightedPrize() {
   const prizes = [
     { label: 'R$0,50', value: 0.5, weight: 80 },
@@ -63,127 +68,155 @@ function getWeightedPrize() {
     { label: 'R$5,00', value: 5.0, weight: 10 },
     { label: 'R$10,00', value: 10.0, weight: 5 },
   ];
-
-  const total = prizes.reduce((sum, p) => sum + p.weight, 0);
-  const r = Math.random() * total;
-  let acc = 0;
+  const total = prizes.reduce((s,p)=>s+p.weight,0);
+  let r = Math.random() * total;
   for (const p of prizes) {
-    acc += p.weight;
-    if (r <= acc) return p;
+    r -= p.weight;
+    if (r <= 0) return p;
   }
   return prizes[0];
 }
 
-// === Rotas ADMIN ===
+// ----------------- ADMIN ROUTES -----------------
 
-// Gerar código com valor fixo customizado
+// generate codes (accepts multiple parameter names for compatibility)
 app.post('/admin/generate', requireAdmin, (req, res) => {
-  const {
-    count = 1,
-    uses_allowed = 1,
-    expires_in_days = 30,
-    fixed_value = null
-  } = req.body || {};
+  const body = req.body || {};
+  const count = parseInt(body.count) || 1;
+  const uses_allowed = parseInt(body.uses_allowed) || parseInt(body.uses) || 1;
+  const expires_in_days = body.expires_in_days !== undefined ? parseInt(body.expires_in_days) : (body.days ? parseInt(body.days) : 30);
+
+  // Accept either "fixed_value" OR "fixed_prize_value" OR "assigned_prize_value" OR "fixedValue"
+  let fixed_value = null;
+  if (body.fixed_value !== undefined) fixed_value = body.fixed_value;
+  else if (body.fixed_prize_value !== undefined) fixed_value = body.fixed_prize_value;
+  else if (body.assigned_prize_value !== undefined) fixed_value = body.assigned_prize_value;
+  else if (body.fixedValue !== undefined) fixed_value = body.fixedValue;
+
+  // Accept label too (optional)
+  let fixed_label = null;
+  if (body.fixed_prize_label !== undefined) fixed_label = body.fixed_prize_label;
+  else if (body.assigned_prize_label !== undefined) fixed_label = body.assigned_prize_label;
+  else if (body.fixed_label !== undefined) fixed_label = body.fixed_label;
+  else if (body.prize_label !== undefined) fixed_label = body.prize_label;
 
   const created_at = Date.now();
-  const expires_at = expires_in_days > 0
-    ? created_at + expires_in_days * 24 * 60 * 60 * 1000
-    : null;
+  const expires_at = expires_in_days > 0 ? created_at + expires_in_days*24*60*60*1000 : null;
 
   const inserted = [];
-
-  function gerarUm(i) {
+  let i = 0;
+  function nextOne() {
     if (i >= count) return res.json({ count: inserted.length, codes: inserted });
-
-    const code = uuidv4().split('-')[0].toUpperCase();
-    const valor = parseFloat(fixed_value);
-
-    const hasFixed = !isNaN(valor) && valor > 0;
-    const label = hasFixed ? `R$${valor.toFixed(2)}` : null;
-    const val = hasFixed ? valor : null;
+    const code = (uuidv4().split('-')[0]).toUpperCase();
+    // parse numeric fixed value safely
+    const fixedValueNum = fixed_value !== null && fixed_value !== '' ? Number(fixed_value) : null;
+    const finalLabel = fixed_label || (fixedValueNum !== null && !isNaN(fixedValueNum) ? `R$${fixedValueNum.toFixed(2)}` : null);
+    const finalValue = (fixedValueNum !== null && !isNaN(fixedValueNum)) ? fixedValueNum : null;
 
     db.run(
       `INSERT INTO codes (code, uses_allowed, uses_count, fixed_prize_label, fixed_prize_value, created_at, expires_at)
        VALUES (?, ?, 0, ?, ?, ?, ?)`,
-      [code, uses_allowed, label, val, created_at, expires_at],
+      [code, uses_allowed, finalLabel, finalValue, created_at, expires_at],
       (err) => {
         if (!err) inserted.push(code);
-        gerarUm(i + 1);
+        i++; nextOne();
       }
     );
   }
-
-  gerarUm(0);
+  nextOne();
 });
 
-// Listar códigos
+// list codes (shows fixed prize info)
 app.get('/admin/list', requireAdmin, (req, res) => {
-  db.all('SELECT * FROM codes ORDER BY id DESC LIMIT 500', (err, rows) => {
+  db.all('SELECT id, code, uses_allowed, uses_count, fixed_prize_label, fixed_prize_value, created_at, expires_at FROM codes ORDER BY id DESC LIMIT 1000', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ codes: rows });
   });
 });
 
-// Logs
+// revoke
+app.post('/admin/revoke', requireAdmin, (req, res) => {
+  const code = (req.body && req.body.code) ? req.body.code : null;
+  if (!code) return res.status(400).json({ error: 'code required' });
+  db.run('DELETE FROM codes WHERE code = ?', [code], function(err){
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ ok: true, deleted: this.changes });
+  });
+});
+
+// logs
 app.get('/admin/logs', requireAdmin, (req, res) => {
-  db.all('SELECT * FROM prize_log ORDER BY id DESC LIMIT 500', (err, rows) => {
+  db.all('SELECT id, code, username, prize_label, prize_value, created_at FROM prize_log ORDER BY id DESC LIMIT 1000', [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ logs: rows });
   });
 });
 
-// === Rotas públicas ===
+// ----------------- PUBLIC ROUTES -----------------
 
-// Validar código
+// redeem (validate without consuming) - returns fixed prize info as well
 app.post('/api/redeem', (req, res) => {
-  const { code } = req.body || {};
-  if (!code) return res.status(400).json({ error: 'Código obrigatório' });
-
+  const code = (req.body && req.body.code) ? req.body.code : null;
+  if (!code) return res.status(400).json({ error: 'code required' });
   db.get('SELECT * FROM codes WHERE code = ?', [code], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!row) return res.status(404).json({ error: 'Código inválido' });
-    if (row.uses_count >= row.uses_allowed)
-      return res.status(400).json({ error: 'Código já usado' });
-
-    res.json({ ok: true });
+    const now = Date.now();
+    if (row.expires_at && now > row.expires_at) return res.status(400).json({ error: 'Código expirado' });
+    if (row.uses_count >= row.uses_allowed) return res.status(400).json({ error: 'Código sem usos restantes' });
+    res.json({
+      ok: true,
+      code: row.code,
+      fixed_prize_label: row.fixed_prize_label,
+      fixed_prize_value: row.fixed_prize_value,
+      remaining: Math.max(0, row.uses_allowed - row.uses_count)
+    });
   });
 });
 
-// Jogar
+// play: consume use and return prize (if fixed prize exists -> use it; else weighted)
 app.post('/api/play', (req, res) => {
-  const { code, username } = req.body || {};
-  if (!code) return res.status(400).json({ error: 'Código obrigatório' });
-  if (!username) return res.status(400).json({ error: 'Nome obrigatório' });
+  const code = (req.body && req.body.code) ? req.body.code : null;
+  const username = (req.body && req.body.username) ? req.body.username : null;
+  if (!code) return res.status(400).json({ error: 'code required' });
+  if (!username) return res.status(400).json({ error: 'username required' });
 
   db.get('SELECT * FROM codes WHERE code = ?', [code], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!row) return res.status(404).json({ error: 'Código inválido' });
-    if (row.uses_count >= row.uses_allowed)
-      return res.status(400).json({ error: 'Código já usado' });
+    if (row.expires_at && Date.now() > row.expires_at) return res.status(400).json({ error: 'Código expirado' });
+    if (row.uses_count >= row.uses_allowed) return res.status(400).json({ error: 'Código sem usos restantes' });
 
-    const prize = row.fixed_prize_value
-      ? { label: row.fixed_prize_label, value: row.fixed_prize_value }
-      : getWeightedPrize();
+    // Determine prize: if fixed_prize_value is NOT NULL => deliver fixed prize
+    let chosen;
+    if (row.fixed_prize_value !== null && row.fixed_prize_value !== undefined) {
+      chosen = {
+        label: row.fixed_prize_label || (`R$${Number(row.fixed_prize_value).toFixed(2)}`),
+        value: Number(row.fixed_prize_value)
+      };
+    } else {
+      chosen = getWeightedPrize();
+    }
 
-    db.run(
-      'UPDATE codes SET uses_count = uses_count + 1 WHERE id = ?',
-      [row.id],
-      (err2) => {
-        if (err2) return res.status(500).json({ error: err2.message });
-        db.run(
-          'INSERT INTO prize_log (code, username, prize_label, prize_value, created_at) VALUES (?, ?, ?, ?, ?)',
-          [row.code, username, prize.label, prize.value, Date.now()],
-          () => res.json({ prize, message: 'Prêmio liberado!' })
-        );
-      }
-    );
+    // consume
+    db.run('UPDATE codes SET uses_count = uses_count + 1 WHERE id = ?', [row.id], function(err2){
+      if (err2) return res.status(500).json({ error: err2.message });
+      // log
+      db.run('INSERT INTO prize_log(code, username, prize_label, prize_value, created_at) VALUES (?, ?, ?, ?, ?)',
+        [row.code, username, chosen.label, chosen.value, Date.now()],
+        (err3) => {
+          if (err3) console.error('log error', err3);
+          res.json({ prize: chosen });
+        });
+    });
   });
 });
 
-// Painel admin
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
+// admin page route (serve file)
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-// === Iniciar servidor ===
-app.listen(PORT, () => console.log(`🚀 FAIT v4 rodando na porta ${PORT}`));
+// fallback / root
+app.get('*', (req,res)=> res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+// start
+app.listen(PORT, ()=> console.log('Server running on', PORT));
